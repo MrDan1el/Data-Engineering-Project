@@ -1,1 +1,6 @@
 venv/
+cred.py
+
+data/
+logs/
+config/

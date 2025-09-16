@@ -83,19 +83,19 @@ x-airflow-common:
 
 services:
   postgres:
-  image: postgres:13
-  environment:
-    POSTGRES_USER: airflow
-    POSTGRES_PASSWORD: airflow
-    POSTGRES_DB: airflow
-  volumes:
-    - postgres-db-volume:/var/lib/postgresql/data
-  healthcheck:
-    test: ["CMD", "pg_isready", "-U", "airflow"]
-    interval: 10s
-    retries: 5
-    start_period: 5s
-  restart: always
+    image: postgres:13
+    environment:
+      POSTGRES_USER: airflow
+      POSTGRES_PASSWORD: airflow
+      POSTGRES_DB: airflow
+    volumes:
+      - postgres-db-volume:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "airflow"]
+      interval: 10s
+      retries: 5
+      start_period: 5s
+    restart: always
   
   postgres_dwh:
     image: postgres:13
@@ -108,7 +108,7 @@ services:
       - "5432:5432"
   
   minio:
-    image: minio/minio
+    image: minio/minio:RELEASE.2025-02-18T16-25-55Z
     restart: always
     volumes:
       - ./data:/data
