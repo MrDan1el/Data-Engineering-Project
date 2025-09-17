@@ -40,7 +40,27 @@ x-airflow-common:
       condition: service_healthy
 
 services:
-
+  postgres_dwh:
+    image: postgres:13
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: postgres
+    restart: always
+    ports:
+      - "5432:5432"
+  minio:
+    image: minio/minio:RELEASE.2025-02-18T16-25-55Z
+    restart: always
+    volumes:
+      - ./data:/data
+    environment:
+      - MINIO_ROOT_USER=minioadmin
+      - MINIO_ROOT_PASSWORD=minioadmin
+    command: server /data --console-address ":9001"
+    ports:
+      - "9000:9000"
+      - "9001:9001"
 
   postgres:
     image: postgres:13
