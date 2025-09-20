@@ -1,5 +1,6 @@
 venv/
-cred.py
+__pycache__/
+cfg.py
 
 data/
 logs/
