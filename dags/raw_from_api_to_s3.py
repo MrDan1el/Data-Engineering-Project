@@ -37,8 +37,8 @@ def extract_data_to_s3():
     data = get_data_from_api(country)
     logging.info(f"Данные из API получены успешно.")
     
-    timestamp = datetime.now().strftime('%Y-%m-%d_%H:%M:%S')
-    filename = f"lastfm_api/{country}/{country}_{timestamp}.json"
+    timestamp = datetime.now().strftime('%Y-%m-%d')
+    filename = f"raw/{timestamp}/{country}_{timestamp}.json"
     
     try:
         hook = S3Hook(aws_conn_id='aws_conn')
