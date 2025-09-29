@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta
+from datetime import timedelta
 import json
 import requests
 import logging
@@ -26,35 +26,26 @@ def get_data_from_api(**context):
         'limit': 100
     }
 
-    try:
-        logging.info(f"Попытка получения данных по API реквесту")
-        response = requests.get(url, headers=headers, params=payload)
-        data = response.json()
-        context['ti'].xcom_push(key='data_from_api', value=data)
-        logging.info(f"Данные получены по API реквесту успешно")
+    logging.info(f"Попытка получения данных по API реквесту")
+    response = requests.get(url, headers=headers, params=payload)
+    data = response.json()
 
-    except Exception as er:
-        logging.error(f'Ошибка при попытке получения данных по API реквесту - {er}')
+    context['ti'].xcom_push(key='data_from_api', value=data)
 
 
 def load_data_to_s3(**context):
 
-    filename = f"raw/{context['ds']}/{COUNTRY}_{context['ds']}.json"
+    key = f"raw/{context['ds']}/{COUNTRY}_{context['ds']}.json"
     data = context['ti'].xcom_pull(task_ids='get_data_from_api', key='data_from_api')
-    
-    try:
-        logging.info(f"Подключение к S3")
-        hook = S3Hook(aws_conn_id='aws_conn')
-        hook.load_string(
-            string_data=json.dumps(data, indent=4),
-            key=filename,
-            bucket_name='bucket',
-            replace=True
-        )
-        logging.info(f"Данные загружены в S3 успешно")
 
-    except Exception as er:
-        logging.error(f'Ошибка при загрузке данных в S3 - {er}')
+    logging.info(f"Попытка загрузки данных в S3")   
+    s3_hook = S3Hook(aws_conn_id='aws_conn')
+    s3_hook.load_string(
+        string_data=json.dumps(data, indent=4),
+        key=key,
+        bucket_name='bucket',
+        replace=True
+    )
 
 
 default_args = {
