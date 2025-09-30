@@ -65,7 +65,7 @@ def load_data_to_pg(**context):
     for track in data:
         pg_hook.run(
             insert_query, 
-            parameters = (track['song_name'], track['artist_name'], track['duratduration_secion'], track['listeners_count'], track['song_rank'], track['source_date'], track['country_code'])
+            parameters = (track['song_name'], track['artist_name'], track['duration_sec'], track['listeners_count'], track['song_rank'], track['source_date'], track['country_code'])
         )
 
 
