@@ -1,4 +1,4 @@
-from datetime import timedelta
+from datetime import datetime, timedelta
 import json
 import requests
 import logging
@@ -12,6 +12,7 @@ from airflow.providers.amazon.aws.hooks.s3 import S3Hook
 
 
 COUNTRY = 'Russian Federation'
+DATE = datetime.now().strftime('%Y-%m-%d')
 
 
 def get_data_from_api(**context):
@@ -35,7 +36,7 @@ def get_data_from_api(**context):
 
 def load_data_to_s3(**context):
 
-    key = f"raw/{context['ds']}/{COUNTRY}_{context['ds']}.json"
+    key = f"raw/{DATE}/{COUNTRY}_{DATE}.json"
     data = context['ti'].xcom_pull(task_ids='get_data_from_api', key='data_from_api')
 
     logging.info(f"Попытка загрузки данных в S3")   

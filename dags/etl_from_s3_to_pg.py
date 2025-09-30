@@ -1,4 +1,4 @@
-from datetime import timedelta
+from datetime import datetime, timedelta
 import logging
 import json
 
@@ -12,11 +12,12 @@ from airflow.providers.postgres.hooks.postgres import PostgresHook
 
 
 COUNTRY = 'Russian Federation'
+DATE = datetime.now().strftime('%Y-%m-%d')
 
 
 def extract_data_from_s3(**context):
 
-    key = f"raw/{context['ds']}/{COUNTRY}_{context['ds']}.json"
+    key = f"raw/{DATE}/{COUNTRY}_{DATE}.json"
 
     logging.info(f"Попытка получения файла из S3")
     s3_hook = S3Hook(aws_conn_id='aws_conn')
@@ -38,13 +39,13 @@ def transform_data(**context):
     tracks_list = data['tracks']['track']
     for track in tracks_list:
         track_info = {
-            'name': track['name'],
-            'duration': int(track['duration']),
-            'listeners': int(track['listeners']),
-            'artist': track['artist']['name'],
-            'rank': int(track['@attr']['rank']),
-            'date': context['ds'],
-            'country': COUNTRY
+            'song_name': track['name'],
+            'duration_sec': int(track['duration']),
+            'listeners_count': int(track['listeners']),
+            'artist_name': track['artist']['name'],
+            'song_rank': int(track['@attr']['rank']),
+            'source_date': DATE,
+            'country_code': 'RU'
         }
         transformed_data.append(track_info)    
 
@@ -64,7 +65,7 @@ def load_data_to_pg(**context):
     for track in data:
         pg_hook.run(
             insert_query, 
-            parameters = (track['name'], track['artist'], track['duration'], track['listeners'], track['rank'], track['date'], 'RU')
+            parameters = (track['song_name'], track['artist_name'], track['duratduration_secion'], track['listeners_count'], track['song_rank'], track['source_date'], track['country_code'])
         )
 
 
