@@ -59,13 +59,21 @@ def load_data_to_pg(**context):
     logging.info(f"Попытка загрузки данных в Postgres")
     pg_hook = PostgresHook(postgres_conn_id='pg_conn')
     insert_query = """
-    INSERT INTO stg.daily_raw_data (song_name, artist_name, duration_sec, listeners_count, song_rank, source_date, country_code)
+    INSERT INTO ods.daily_raw_data (song_name, artist_name, duration_sec, listeners_count, song_rank, source_date, country_code)
     VALUES (%s, %s, %s, %s, %s, %s, %s)
     """
     for track in data:
         pg_hook.run(
             insert_query, 
-            parameters = (track['song_name'], track['artist_name'], track['duration_sec'], track['listeners_count'], track['song_rank'], track['source_date'], track['country_code'])
+            parameters = (
+                track['song_name'], 
+                track['artist_name'], 
+                track['duration_sec'], 
+                track['listeners_count'], 
+                track['song_rank'], 
+                track['source_date'], 
+                track['country_code']
+                )
         )
 
 

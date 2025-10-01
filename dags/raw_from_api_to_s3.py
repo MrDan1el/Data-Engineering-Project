@@ -11,7 +11,7 @@ from airflow.operators.empty import EmptyOperator
 from airflow.providers.amazon.aws.hooks.s3 import S3Hook
 
 
-COUNTRY = {'Russian Federation': 'RU'}
+COUNTRY = 'Russian Federation'
 DATE = datetime.now().strftime('%Y-%m-%d')
 
 
