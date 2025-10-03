@@ -11,12 +11,11 @@ from airflow.operators.empty import EmptyOperator
 from airflow.providers.amazon.aws.hooks.s3 import S3Hook
 
 
-COUNTRIES = {
-    'Russian Federation': 'RU',
-    'United States': 'US',
-    'Kazakhstan': 'KZ'
-}
-DATE = datetime.now().strftime('%Y-%m-%d')
+COUNTRIES = [
+    'Russian Federation',
+    'United States',
+    'Kazakhstan'
+]
 
 
 def get_data_from_api(params):
@@ -32,26 +31,28 @@ def get_data_from_api(params):
     return response.json()
 
 
-def load_data_to_s3():
-
-    logging.info(f"Попытка подключения к S3")   
+def load_data_to_s3(**context):
+    
+    date = context["data_interval_end"].format("YYYY-MM-DD")
     s3_hook = S3Hook(aws_conn_id='aws_conn')
+
     for country in COUNTRIES:
-        logging.info(f"Попытка получения данных для {country} за {DATE}")   
+        logging.info(f"Попытка получения данных для {country} за {date}")   
         params = {
             'method': 'geo.getTopTracks',
             'country': country,
             'limit': 100
         }
         data = get_data_from_api(params)
-        key = f"top_100/raw/{DATE}/{country}_{DATE}.json"
+        
+        key = f"top_100/raw/{date}/{country}_{date}.json"
         s3_hook.load_string(
             string_data=json.dumps(data, indent=4),
             key=key,
             bucket_name='bucket',
             replace=True
         )
-        logging.info(f"Данные для {country} за {DATE} загружены в S3") 
+        logging.info(f"Данные для {country} за {date} загружены в S3") 
 
 
 default_args = {

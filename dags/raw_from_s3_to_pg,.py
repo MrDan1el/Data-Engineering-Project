@@ -10,29 +10,34 @@ from airflow.providers.amazon.aws.hooks.s3 import S3Hook
 from airflow.providers.postgres.hooks.postgres import PostgresHook
 
 
-DATE = datetime.now().strftime('%Y-%m-%d')
-
-
 def discover_files_S3(**context):
+    
+    date = context["data_interval_end"].format("YYYY-MM-DD")
 
     s3 = S3Hook(aws_conn_id='aws_conn')
     keys = s3.list_keys(
         bucket_name='bucket', 
-        prefix=f"top_100/raw/{DATE}/"
+        prefix=f"top_100/raw/{date}/"
     ) or []
+    
+    logging.info(f"Получены ключи за {date} из S3") 
     context['ti'].xcom_push(key='s3_keys', value=keys)
 
 
-def load_data_to_pg(**context):
-    
+def load_data_to_pg_stg(**context):
+
+    date = context["data_interval_end"].format("YYYY-MM-DD")
     keys = context['ti'].xcom_pull(task_ids='discover_files_S3', key='s3_keys')
+
     s3_hook = S3Hook(aws_conn_id='aws_conn')
     pg_hook = PostgresHook(postgres_conn_id='pg_conn')
     insert_query = """
         INSERT INTO stg.daily_raw_data (country, source_date, raw_payload, loaded_at, processed)
         VALUES (%s, %s, %s, %s, %s)
         """
+    
     for key in keys:
+        country = key.split('/')[-1].split('_')[0]
         obj = s3_hook.read_key(
             key=key, 
             bucket_name='bucket'
@@ -40,13 +45,14 @@ def load_data_to_pg(**context):
         pg_hook.run(
             insert_query, 
             parameters = (
-                key.split('/')[-1].split('_')[0], 
-                DATE,
+                country, 
+                date,
                 obj, 
                 datetime.now().strftime('%Y-%m-%d_%H:%M:%S'), 
                 'False'
                 )
         )
+        logging.info(f"Данные для {country} за {date} загружены в Postgres stg") 
 
 
 default_args = {
@@ -83,13 +89,13 @@ with DAG(
         python_callable=discover_files_S3
     )
 
-    load_data_to_pg = PythonOperator(
-        task_id='load_data_to_pg',
-        python_callable=load_data_to_pg
+    load_data_to_pg_stg = PythonOperator(
+        task_id='load_data_to_pg_stg',
+        python_callable=load_data_to_pg_stg
     )
 
     end = EmptyOperator(
         task_id="end"
     )    
 
-    start >> sensor_on_raw_layer >> discover_files_S3 >> load_data_to_pg >> end
+    start >> sensor_on_raw_layer >> discover_files_S3 >> load_data_to_pg_stg >> end
