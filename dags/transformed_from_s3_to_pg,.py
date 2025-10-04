@@ -1,5 +1,6 @@
 from datetime import datetime, timedelta
 import logging
+import json
 
 from airflow import DAG
 from airflow.utils.dates import days_ago
@@ -24,7 +25,25 @@ def discover_files_S3(**context):
     context['ti'].xcom_push(key='s3_keys', value=keys)
 
 
-def load_data_to_pg_stg(**context):
+def transform_data(data, date, country):
+    
+    transformed_data = []
+    tracks_list = data['tracks']['track']
+    for track in tracks_list:
+        track_info = {
+            'song_name': track['name'],
+            'duration_sec': int(track['duration']),
+            'listeners_count': int(track['listeners']),
+            'artist_name': track['artist']['name'],
+            'song_rank': int(track['@attr']['rank']),
+            'source_date': date,
+            'country': country
+        }
+        transformed_data.append(track_info)    
+    return transformed_data
+
+
+def load_data_to_pg(**context):
 
     date = context["data_interval_end"].format("YYYY-MM-DD")
     keys = context['ti'].xcom_pull(task_ids='discover_files_S3', key='s3_keys')
@@ -32,27 +51,33 @@ def load_data_to_pg_stg(**context):
     s3_hook = S3Hook(aws_conn_id='aws_conn')
     pg_hook = PostgresHook(postgres_conn_id='pg_conn')
     insert_query = """
-        INSERT INTO stg.daily_raw_data (country, source_date, raw_payload, loaded_at, processed)
-        VALUES (%s, %s, %s, %s, %s)
+        INSERT INTO ods.daily_data (song_name, artist_name, duration_sec, listeners_count, song_rank, source_date, country)
+        VALUES (%s, %s, %s, %s, %s, %s, %s)
+        ON CONFLICT (song_rank, source_date, country) DO NOTHING
         """
     
     for key in keys:
-        country = key.split('/')[-1].split('_')[0]
         obj = s3_hook.read_key(
             key=key, 
             bucket_name='bucket'
         )
-        pg_hook.run(
-            insert_query, 
-            parameters = (
-                country, 
-                date,
-                obj, 
-                datetime.now().strftime('%Y-%m-%d_%H:%M:%S'), 
-                'False'
+        country = key.split('/')[-1].split('_')[0]
+        data = transform_data(json.loads(obj), date, country)
+
+        for track in data:
+            pg_hook.run(
+                insert_query, 
+                parameters = (
+                    track['song_name'], 
+                    track['artist_name'], 
+                    track['duration_sec'], 
+                    track['listeners_count'], 
+                    track['song_rank'], 
+                    track['source_date'], 
+                    track['country']
                 )
-        )
-        logging.info(f"Данные для {country} за {date} загружены в Postgres stg") 
+            )
+        logging.info(f"Данные для {country} за {date} загружены в Postgres ods") 
 
 
 default_args = {
@@ -63,9 +88,9 @@ default_args = {
 
 with DAG(
     default_args=default_args,
-    dag_id='raw_from_s3_to_pg',
-    description='Load raw data from S3 to Postgres stg schema',
-    tags=['s3', 'postgres', 'api', 'stg'],
+    dag_id='transformed_from_s3_to_pg',
+    description='Extract, transform and load data from S3 to Postgres ods schema',
+    tags=['s3', 'postgres', 'api', 'ods', 'etl'],
     start_date = days_ago(1),
     schedule_interval='0 9 * * *',
     catchup=False
@@ -89,13 +114,13 @@ with DAG(
         python_callable=discover_files_S3
     )
 
-    load_data_to_pg_stg = PythonOperator(
-        task_id='load_data_to_pg_stg',
-        python_callable=load_data_to_pg_stg
+    load_data_to_pg = PythonOperator(
+        task_id='load_data_to_pg',
+        python_callable=load_data_to_pg
     )
 
     end = EmptyOperator(
         task_id="end"
     )    
 
-    start >> sensor_on_raw_layer >> discover_files_S3 >> load_data_to_pg_stg >> end
+    start >> sensor_on_raw_layer >> discover_files_S3 >> load_data_to_pg >> end
