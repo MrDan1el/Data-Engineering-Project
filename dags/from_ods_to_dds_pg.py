@@ -32,7 +32,7 @@ with DAG(
 
     sensor_on_etl = ExternalTaskSensor(
         task_id="sensor_on_etl",
-        external_dag_id="etl_from_s3_to_pg",
+        external_dag_id="transformed_from_s3_to_pg",
         allowed_states=["success"],
         mode="reschedule",
         timeout=360000,  # длительность работы сенсора
@@ -43,11 +43,11 @@ with DAG(
         task_id="insert_into_dim_country",
         conn_id="pg_conn",
         sql = '''
-            INSERT INTO dds.dim_country (country_code) 
-            SELECT DISTINCT country_code 
-            FROM ods.daily_raw_data
+            INSERT INTO dds.dim_country (country_name) 
+            SELECT DISTINCT country 
+            FROM ods.daily_data
             WHERE source_date = %(date)s
-            ON CONFLICT (country_code) DO NOTHING
+            ON CONFLICT (country_name) DO NOTHING
         ''',
         parameters={"date": DATE}
     )
@@ -58,7 +58,7 @@ with DAG(
         sql = '''
             INSERT INTO dds.dim_artist (artist_name) 
             SELECT DISTINCT artist_name 
-            FROM ods.daily_raw_data
+            FROM ods.daily_data
             WHERE source_date = %(date)s
             ON CONFLICT (artist_name) DO NOTHING
         ''',
@@ -71,7 +71,7 @@ with DAG(
         sql = '''
             INSERT INTO dds.dim_song (song_name, duration_sec) 
             SELECT DISTINCT song_name, duration_sec
-            FROM ods.daily_raw_data
+            FROM ods.daily_data
             WHERE source_date = %(date)s
             ON CONFLICT (song_name, duration_sec) DO NOTHING
         ''',
@@ -83,17 +83,17 @@ with DAG(
         conn_id="pg_conn",
         sql = '''
             INSERT INTO dds.fact_daily_top_100 (date, country_id, song_id, artist_id, song_rank, listeners_count)
-            SELECT drd.source_date,
+            SELECT dr.source_date,
                     dc.country_id,
                     ds.song_id,
                     da.artist_id,
-                    drd.song_rank,
-                    drd.listeners_count
-            FROM ods.daily_raw_data drd
-                JOIN dds.dim_artist da ON da.artist_name = drd.artist_name
-                JOIN dds.dim_song ds ON ds.song_name = drd.song_name AND ds.duration_sec = drd.duration_sec 
-                JOIN dds.dim_country dc ON dc.country_code = drd.country_code
-            WHERE drd.source_date = %(date)s
+                    dr.song_rank,
+                    dr.listeners_count
+            FROM ods.daily_data dr
+                JOIN dds.dim_artist da ON da.artist_name = dr.artist_name
+                JOIN dds.dim_song ds ON ds.song_name = dr.song_name AND ds.duration_sec = dr.duration_sec 
+                JOIN dds.dim_country dc ON dc.country_name = dr.country
+            WHERE dr.source_date = %(date)s
             ON CONFLICT (date, country_id, song_rank) DO NOTHING
         ''',
         parameters={"date": DATE}
